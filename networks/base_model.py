@@ -21,8 +21,10 @@ class BaseModel(nn.Module):
         print(f"Saved model weights: {path}")
 
     def load_networks(self, epoch):
+        if epoch == "latest":
+            epoch = "last"
         path = os.path.join(self.save_dir, f"model_epoch_{epoch}.pth")
-        state = torch.load(path, map_location=self.device)
+        state = torch.load(path, map_location=self.device, weights_only=False)
         weights = state.get("model", state) if isinstance(state, dict) else state
         self.model.load_state_dict(weights)
         if isinstance(state, dict) and "total_steps" in state:
