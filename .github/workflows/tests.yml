@@ -1,5 +1,9 @@
 name: project-tests
 
+concurrency:
+  group: project-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main, feat/freqnet-fcr]
