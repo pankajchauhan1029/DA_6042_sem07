@@ -1,59 +1,93 @@
-# DA_6042_sem07 — FreqNet Deepfake Detection
+# FreqNet Deepfake Detection + Frequency-Consistency Regularization
 
-Team members:
+**Team members**
 - Pitta Abhiram — 230104070
 - Pankaj Chauhan — 230104069
 
-This repository contains the project proposal and a patch for adding Frequency-Consistency Regularization (FCR) to the FreqNet deepfake detector.
+This project reproduces the official FreqNet deepfake detector and studies a proposed extension, **Frequency-Consistency Regularization (FCR)**. FreqNet learns in the frequency domain using high-frequency representations and frequency convolution modules. FCR is an experimental add-on that encourages stable predictions between an image and a mildly transformed view.
 
-## Current status
+**Research status:** source code, training/evaluation scripts, tests, and the experiment protocol are in the repository. The model has **not** been trained here because the dataset and a training GPU have not been provided to this session. No project-specific performance result is claimed. Fill report metrics only after running the experiments.
 
-- [x] Initialize repository and add experiment plan
-- [x] Prepare proposed FCR trainer patch and CLI option additions
-- [ ] Integrate with the full upstream FreqNet source and verify compatibility
-- [ ] Reproduce the original baseline
-- [ ] Run controlled ablations and robustness tests
-- [ ] Replace report placeholders with measured results
+## Project files
 
-**No training has been run and no project performance numbers are claimed.** Values quoted from the paper are reference results only.
+- `networks/freqnet.py` — FreqNet architecture adapted from the [official repository](https://github.com/chuangchuangtan/FreqNet-DeepfakeDetection).
+- `networks/trainer.py` — baseline training path plus optional FCR loss.
+- `train.py` — seeded training loop, validation, early stopping, TensorBoard logs, and best/last checkpoints.
+- `evaluate.py` — held-out evaluation with accuracy, AP, AUROC, F1, precision, recall, and confusion matrix.
+- `robustness_eval.py` — evaluates clean images, JPEG qualities 95/75/50, and resize down/up.
+- `DATASET_AND_EXPERIMENTS.md` — dataset folder layout, smoke-test checklist, and experiment matrix.
+- `REPORT_TEMPLATE.tex` — one-page report draft with project metrics left pending.
+- `tests/test_fcr.py` — unit tests; GitHub Actions runs syntax checks and tests.
 
-## Files
+## 1. Environment setup
 
-- `patches/trainer_fcr.py`: proposed FCR trainer patch based on the upstream trainer API.
-- `options/train_options_additions.txt`: two command-line options to add to upstream `TrainOptions`.
-- `EXPERIMENT_PLAN.md`: controlled comparison, robustness protocol, and reporting requirements.
-- `REPORT_TEMPLATE.tex`: one-page LaTeX report draft with unfilled project result fields.
+Python 3.10 or 3.11 is recommended. Use a CUDA-enabled PyTorch build compatible with your GPU if available.
 
-## Proposed objective
+```bash
+git clone https://github.com/pankajchauhan1029/DA_6042_sem07.git
+cd DA_6042_sem07
+python -m venv .venv
+# Linux/macOS:
+source .venv/bin/activate
+# Windows PowerShell:
+# .venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-For image x, label y, transformation T, and model logit z:
+For CPU-only testing, pass `--gpu_ids -1`. The original FreqNet architecture is computationally heavy; use a supported CUDA GPU for practical training.
+
+## 2. Dataset
+
+Download and prepare the dataset following the [official FreqNet repository](https://github.com/chuangchuangtan/FreqNet-DeepfakeDetection) and its linked [CNNDetection dataset](https://github.com/peterwang512/CNNDetection). The expected directory structure and class mapping are documented in [DATASET_AND_EXPERIMENTS.md](DATASET_AND_EXPERIMENTS.md).
+
+For the four-class experiment, the root passed to `--dataroot` must have `train/` and `val/`; each split should contain class folders (for example `car, cat, chair, horse`) and within each class, `0_real/` and `1_fake/`. The ImageFolder class ordering must map `0_real` to label 0 and `1_fake` to label 1. Confirm the actual downloaded directory names before running.
+
+## 3. Train baseline
+
+First run a short smoke test (one epoch and a small batch) and verify data loading/checkpoint output. Then run the full baseline:
+
+```bash
+python train.py --name freqnet-baseline --dataroot /path/to/ForenSynths --classes car,cat,chair,horse --batch_size 32 --lr 0.001 --niter 85 --seed 1029 --gpu_ids 0
+```
+
+On CPU, replace `--gpu_ids 0` with `--gpu_ids -1` and use a small batch for a smoke test.
+
+The run folder is created under `checkpoints/`. It contains the run configuration, `model_epoch_best.pth`, `model_epoch_last.pth`, TensorBoard logs, and a training summary. Best checkpoint selection uses validation average precision (AP), not test performance.
+
+## 4. Train FCR
+
+Run the same configuration and seed, changing only the run name and FCR flags:
+
+```bash
+python train.py --name freqnet-fcr-lambda005 --dataroot /path/to/ForenSynths --classes car,cat,chair,horse --batch_size 32 --lr 0.001 --niter 85 --seed 1029 --gpu_ids 0 --fcr_enabled --fcr_lambda 0.05
+```
+
+The objective is
 
 `L = 0.5 * [BCE(z(x), y) + BCE(z(T(x)), y)] + lambda * KL(Bernoulli(sigmoid(z(x))) || Bernoulli(sigmoid(z(T(x)))))`
 
-The proposed transformation randomly uses mild downsample/upscale or a 3x3 average blur. JPEG robustness must be tested with actual JPEG encode/decode at evaluation time; the training helper does not simulate JPEG.
+where `T` is a mild downsample/upscale or 3x3 average blur. This is a hypothesis: it may help, do nothing, or hurt. Compare the baseline against the two-view `lambda=0` ablation and `lambda=0.01, 0.05, 0.1`. Keep splits and training budgets identical.
 
-## Integration
+## 5. Evaluate
 
-1. Obtain the full upstream implementation from https://github.com/chuangchuangtan/FreqNet-DeepfakeDetection and install its requirements.
-2. Back up the upstream `networks/trainer.py`, then use `patches/trainer_fcr.py` as the proposed replacement.
-3. Add the arguments in `options/train_options_additions.txt` inside `TrainOptions.initialize()`.
-4. Run baseline without `--fcr_enabled`, then compare FCR with `--fcr_enabled --fcr_lambda 0.01`, `0.05`, and `0.1`. Also run `--fcr_enabled --fcr_lambda 0` as a two-view supervised ablation.
-5. Use separate experiment names/checkpoint folders and keep data splits, training budget, and all other settings identical.
-
-Example command shape (adapt to the upstream options and dataset paths):
+For a held-out binary real/fake directory with `0_real/` and `1_fake/` subfolders:
 
 ```bash
-python train.py --name fcr-lambda005 --dataroot /path/to/CNNDetection --classes car,cat,chair,horse --batch_size 32 --delr_freq 10 --lr 0.001 --niter 85 --fcr_enabled --fcr_lambda 0.05
+python evaluate.py --model_path checkpoints/EXPERIMENT_FOLDER/model_epoch_best.pth --dataroot /path/to/held-out-set --gpu_ids 0 --output_json evaluation_results.json
+python robustness_eval.py --model_path checkpoints/EXPERIMENT_FOLDER/model_epoch_best.pth --dataroot /path/to/held-out-set --gpu_ids 0 --output_json robustness_results.json
 ```
 
-## Evaluation rules
+For a CPU run, use `--gpu_ids -1`. If the test root has class subdirectories, pass `--classes class1,class2` as appropriate. Use only held-out data for final metrics; do not tune the model or lambda on the test set.
 
-- Tune only on validation data; do not select checkpoints or lambda on the test set.
-- Prefer three seeds and report mean ± standard deviation.
-- Report accuracy, average precision, AUROC, F1, confusion matrix, parameter count, and latency where feasible.
-- Evaluate the same held-out test images under JPEG qualities 95/75/50 and resize down/up.
-- Keep generator/source identities disjoint between training and held-out tests when the dataset supports it.
-- Record command lines, seed, commit, package versions, GPU, checkpoint path, and raw predictions.
-- The upstream model code has CUDA allocations in its constructor; validate it in the intended GPU environment. The patch is not yet end-to-end tested.
+## 6. Reproducibility and reporting
 
-FCR is a hypothesis and may improve, leave unchanged, or reduce performance. Only measured results from this project should be added to the report.
+- Use seeds 1029, 2027, and 6042 when resources permit; report mean ± standard deviation.
+- Compare baseline and FCR on identical splits and the same held-out examples.
+- Report accuracy, AP, AUROC, F1, confusion matrix, parameter count, and latency.
+- Report robustness separately under JPEG and resize perturbations.
+- Keep datasets, checkpoints, and raw images out of Git (ignored by `.gitignore`).
+- Do not report the paper's published scores as your own reproduction results.
+
+The paper reports broad cross-generator evaluation; use its official paper and repository for method details:
+- Tan et al., *Frequency-Aware Deepfake Detection: Improving Generalizability through Frequency Space Learning*, AAAI 2024. [Paper](https://arxiv.org/abs/2403.07240) · [Official code](https://github.com/chuangchuangtan/FreqNet-DeepfakeDetection)
