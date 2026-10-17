@@ -24,6 +24,27 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
+def dataset_targets(dataset):
+    if hasattr(dataset, "targets"):
+        return list(dataset.targets)
+    if hasattr(dataset, "datasets"):
+        combined = []
+        for child in dataset.datasets:
+            combined.extend(dataset_targets(child))
+        return combined
+    return []
+
+
+def assert_binary_split(dataset, split_name):
+    targets = dataset_targets(dataset)
+    observed = set(int(value) for value in targets)
+    if observed != {0, 1}:
+        raise ValueError(
+            f"{split_name} split must contain both binary labels 0 and 1; "
+            f"observed labels={sorted(observed)}. Verify 0_real/1_fake folder names and --classes."
+        )
+
+
 def save_checkpoint(path, trainer, epoch, metrics):
     torch.save({
         "model": trainer.model.state_dict(),
@@ -73,6 +94,12 @@ def main():
     train_loader = create_dataloader(train_opt)
     if len(train_loader) == 0:
         raise RuntimeError("Training loader is empty. Check dataset directory structure.")
+    assert_binary_split(train_loader.dataset, "Training")
+    val_loader_check = create_dataloader(val_opt)
+    if len(val_loader_check) == 0:
+        raise RuntimeError("Validation loader is empty. Check dataset directory structure.")
+    assert_binary_split(val_loader_check.dataset, "Validation")
+    del val_loader_check
     writer = SummaryWriter(os.path.join(run_dir, "tensorboard"))
     trainer = Trainer(opt)
     best_ap = -float("inf")
@@ -95,6 +122,8 @@ def main():
 
         train_loss = running_loss / max(1, batches)
         acc, ap, real_acc, fake_acc, y_true, y_score = validate(trainer.model, val_opt)
+        if not np.isfinite(ap):
+            raise RuntimeError("Validation AP is not finite. Ensure validation contains both real and fake images.")
         val_metrics = {
             "accuracy": float(acc), "average_precision": float(ap),
             "real_accuracy": float(real_acc), "fake_accuracy": float(fake_acc),
