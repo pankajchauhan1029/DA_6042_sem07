@@ -1,0 +1,49 @@
+\documentclass[8pt,a4paper]{article}
+\usepackage[top=0.15in,bottom=0.15in,left=0.55in,right=0.55in]{geometry}
+\usepackage{amsmath,amsfonts,amssymb,booktabs,tabularx,makecell,caption,hyperref,titlesec}
+\hypersetup{colorlinks=true,allcolors=black}
+\linespread{0.52}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1pt}
+\titlespacing*{\subsection}{0pt}{7pt}{3pt}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.05}
+\captionsetup[table]{font=small,labelfont=bf,position=top,skip=3pt}
+\begin{document}
+\thispagestyle{empty}
+\begin{center}
+{\large\bfseries Frequency-Consistent FreqNet for Generalizable Deepfake Detection}\\[4pt]
+\textbf{Team No:} [Enter assigned number] \quad | \quad \textbf{Members:} Pitta Abhiram (230104070), Pankaj Chauhan (230104069)\\[3pt]
+\textbf{GitHub:} \url{https://github.com/pankajchauhan1029/DA_6042_sem07}
+\end{center}
+\vspace{-5pt}
+\subsection*{I. Summary of the Assigned Paper (Maximum 100 Words)}
+FreqNet addresses the poor generalization of deepfake detectors to images produced by unseen generators. Conventional detectors often learn generator-specific artifacts that disappear when synthesis methods or image domains change. FreqNet instead makes frequency learning part of the detector: it extracts high-frequency image and feature information and applies convolution to amplitude and phase spectra before transforming features back. These operations encourage the network to use broader forensic cues rather than relying only on spatial appearance. The paper reports strong cross-generator accuracy with a lightweight model, motivating extensions that further reduce sensitivity to benign image transformations.
+\subsection*{II. Proposed Novelty \& Technical Contribution}
+We propose \textbf{Frequency-Consistency Regularization (FCR)} as an add-on to the original FreqNet, leaving its high-frequency representation and frequency convolution modules intact. For each training image $x$, generate a mildly transformed view $T(x)$ (mild resize or weak blur; evaluate JPEG compression separately) that preserves its real/fake label. Train both views with the standard classification objective and penalize disagreement between their predicted class distributions. This differs from the original method by explicitly encouraging prediction stability across transformations, rather than relying only on frequency-space feature learning. The contribution must be validated by an ablation against the unmodified FreqNet.
+\subsection*{III. Theoretical / Mathematical Justification}
+Let $q_\theta(x)=\sigma(z_\theta(x))$ be the predicted fake probability from the binary logit. The proposed objective is
+\[
+\mathcal{L}=\tfrac{1}{2}\left[\mathcal{L}_{\mathrm{BCE}}(x,y)+\mathcal{L}_{\mathrm{BCE}}(T(x),y)\right]
++\lambda D_{\mathrm{KL}}\!\left(q_\theta(x)\,\|\,q_\theta(T(x))\right),
+\]
+where $T$ is a mild label-preserving view, $\lambda\geq0$ controls consistency strength, and $D_{\mathrm{KL}}(p\|q)=\sum_c p_c\log(p_c/q_c)$. Since FreqNet uses a binary real/fake logit, implement this as Bernoulli KL between sigmoid probabilities. The averaged BCE terms preserve discrimination; the consistency term penalizes prediction changes caused by non-semantic perturbations. If such transformations alter source-specific spectral artifacts more than general forgery cues, minimizing this term may discourage brittle decision rules and improve transfer to unseen sources. This is a hypothesis, not a guaranteed gain; overly strong $\lambda$ or destructive transformations can suppress useful cues.
+\subsection*{IV. Comparative Results \& Empirical Evaluation}
+Use the same ForenSynths four-class training setting and held-out test protocol as the reproduced baseline; report mean accuracy (Acc.) and average precision (AP). The paper reports FreqNet at 91.5\% mean Acc. and 98.5\% mean AP in its four-class setting. \textbf{Re-run the baseline and proposed model on the same split before submission}; the proposed-model values below are intentionally left pending rather than fabricated.
+\begin{center}
+\captionof{table}{Baseline reference and project evaluation on ForenSynths (four-class setting).}
+\small
+\begin{tabularx}{\linewidth}{@{}X c c c c@{}}
+\toprule
+\textbf{Method} & \makecell{\textbf{Mean Acc.}\\($\uparrow$)} & \makecell{\textbf{Mean AP}\\($\uparrow$)} & \makecell{\textbf{Params}\\(M)} & \makecell{\textbf{Latency}\\(ms/img)}\\
+\midrule
+FreqNet (paper-reported) & 91.5\% & 98.5\% & 1.9 & Not reported\\
+\textbf{FreqNet + FCR (ours)} & [measure] & [measure] & [measure] & [measure]\\
+\midrule
+$\Delta$ (ours -- baseline) & [calculate] & [calculate] & [calculate] & N/A\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\vspace{-5pt}
+\textbf{Result interpretation:} Report the measured difference only after evaluation. Include at least three runs or a fixed seed, and compare baseline/FCR under identical data splits and training budgets. Also report a JPEG/resize robustness test and an ablation with $\lambda=0$ versus $\lambda>0$. Do not claim improvement unless results support it.
+\end{document}
