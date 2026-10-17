@@ -1,0 +1,9 @@
+Add these lines inside TrainOptions.initialize() in options/train_options.py:
+
+parser.add_argument('--fcr_enabled', action='store_true',
+                    help='enable Frequency-Consistency Regularization training')
+parser.add_argument('--fcr_lambda', type=float, default=0.05,
+                    help='weight for the prediction consistency KL loss')
+
+Without --fcr_enabled, the trainer follows the original single-view supervised loss path.
+With --fcr_enabled --fcr_lambda 0, it trains on both views but applies no consistency penalty.
