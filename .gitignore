@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+dataset/
+data_raw/
+checkpoints/
+runs/
+*.pth
+*.pt
+*.log
+evaluation_results.json
