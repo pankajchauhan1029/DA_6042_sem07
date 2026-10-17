@@ -1,0 +1,6 @@
+variant,seed,validation_accuracy,validation_ap,test_accuracy,test_ap,test_auroc,test_f1,parameter_count,inference_ms_per_image,clean_accuracy,jpeg95_accuracy,jpeg75_accuracy,jpeg50_accuracy,resize_down_up_accuracy,notes
+baseline,1029,,,,,,,,,,,,,,
+two_view_lambda0,1029,,,,,,,,,,,,,,
+fcr_lambda001,1029,,,,,,,,,,,,,,
+fcr_lambda005,1029,,,,,,,,,,,,,,
+fcr_lambda01,1029,,,,,,,,,,,,,,
